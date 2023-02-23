@@ -15,14 +15,16 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 cpkt_model_number = 271 #Checkpoint
 
 phase             = 11
-block_size        = 48
 channel           = 31
 rank              = 4
 learn_rate        = 0.0001
 epoch_num         = 400
+batch = 77
+block_size = 48
 
 
-dataset           = 'ICVL'
+dataset           = 'Harvard'
+test_dataset = 'ICVL48'
 
 # Image size
 '''
@@ -37,7 +39,7 @@ stride            = 24
 
 model_dir         = './Model/%s_%dPhase_%dEpoch_%.5fLearnrate_%dRank' % (dataset,phase,epoch_num,learn_rate,rank)
 result_dir        = 'Result/%s_%dCkpt_%dPhase_%dEpoch_%.5fLearnrate_%dRank' % (dataset,cpkt_model_number,phase,epoch_num,learn_rate,rank)
-test_data_dir     = './Data/Test/%s%d' % (dataset, block_size)
+test_data_dir     = './Data/Test/%s' % (test_dataset)
 if not os.path.exists(result_dir):
         os.makedirs(result_dir)
 
@@ -64,13 +66,8 @@ saver.restore(sess, './%s/model_%d.cpkt' % (model_dir, cpkt_model_number))
 filepaths = os.listdir(test_data_dir)
 ImgNum    = len(filepaths)
 
-if dataset=='Harvard':
-    batch = 77
-elif dataset=='ICVL':
-    batch = 77
-
 Cu_input = np.zeros([block_size, block_size, channel])
-T  = np.round(np.random.rand(block_size/2, block_size/2))
+T  = np.round(np.random.rand(int(block_size/2), int(block_size/2)))
 T  = np.concatenate([T,T],axis=0)
 T  = np.concatenate([T,T],axis=1)
 for ch in range(channel):
@@ -79,7 +76,7 @@ Cu_input = np.expand_dims(Cu_input, axis=0)
 Cu_input = np.tile(Cu_input, [batch, 1, 1, 1])
 
 print("\n...............................")
-print('Dataset: %s'%(dataset))
+print('Dataset: %s'%(test_dataset))
 print('Resolution: %d * %d * %d'%(height,width,channel))
 print('Total number of images: %d' % (ImgNum))
 print("...............................\n")
@@ -125,23 +122,23 @@ for img_no in range(ImgNum):
     # Aggregate the oblique blocks into HSI
     result_image, gt_image, cassi_image = Fusion(output, gt_image, cassi, block_size, stride)
     
-    psnr     = Cal_PSNR(gt_image, result_image)
-    psnr_sum = psnr_sum + psnr
+    #psnr     = Cal_PSNR(gt_image, output)
+    #psnr_sum = psnr_sum + psnr
     
-    print('Reconstructed PSNR: %.3f' % (psnr))
-    print("...............................\n")
+    #print('Reconstructed PSNR: %.3f' % (psnr))
+    #print("...............................\n")
     
     out_dict = {'rec_image': result_image,
                 'cassi_image':cassi_image,
                 'gt_image': gt_image}
-    out_filename = '%s/%s.mat' % (result_dir, imgName)
+    out_filename = '%s/%s/%s.mat' % (result_dir, test_dataset, imgName)
     sio.savemat(out_filename, out_dict)
     imgCnt = imgCnt + 1
 
 sess.close()
 
-print('Check point: %d'%(cpkt_model_number))
-print('Average PSNR: %.3f dB'%(psnr_sum/ImgNum))
-print('Average consuming time: %.3f secs'%(time_sum/(ImgNum-1)))
+#print('Check point: %d'%(cpkt_model_number))
+#print('Average PSNR: %.3f dB'%(psnr_sum/ImgNum))
+#print('Average consuming time: %.3f secs'%(time_sum/(ImgNum-1)))
 
 print("Reconstruction Finished")
